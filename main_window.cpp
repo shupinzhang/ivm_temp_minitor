@@ -41,6 +41,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->pbtn_open, SIGNAL(clicked()), this, SLOT(pbtn_open_clicked()));
     connect(ui->pbtn_send, SIGNAL(clicked()), this, SLOT(pbtn_send_clicked()));
     connect(ui->pbtn_clear, SIGNAL(clicked()), this, SLOT(pbtn_clear_clicked()));
+    connect(ui->pbtn_set, SIGNAL(clicked()), this, SLOT(pbtn_set_clicked()));
     connect(ui->spinBox_auto_interval, SIGNAL(valueChanged(int)), this, SLOT(spinBox_valueChanged(int)));
 
     // create cms api object
@@ -49,8 +50,6 @@ MainWindow::MainWindow(QWidget *parent)
     // initialize external device
     vm_controller_ = new VMController(this);
     connect(vm_controller_, SIGNAL(readyRead()), this, SLOT(vmc_ready_read()));
-
-    tmr_pulling_watch_->start();
 }
 
 MainWindow::~MainWindow()
@@ -194,51 +193,63 @@ void MainWindow::vmc_ready_read()
     infos.insert("fn",            rx_data.mid(77, 1));
     infos.insert("door",          rx_data.mid(80, 1));
 
-    cms_api_->updateMonitoringInfos("HE01040", infos);
+    if (machine_code_.isEmpty())
+        qDebug()<< "Pls set machine code";
+    else {
+        cms_api_->updateMonitoringInfos(machine_code_, infos);
+    }
 }
 
 void MainWindow::watch_pulling()
 {
-    QByteArray cmds;
-    bool result = cms_api_->getRemoteCommand("HE01040", &cmds);
-    if (result == false) {
-        qDebug() << "[PULLING] pulling cmd: failed.";
-        return;
+    if (!machine_code_.isEmpty()) {
+        QByteArray cmds;
+        bool result = cms_api_->getRemoteCommand(machine_code_, &cmds);
+        if (result == false) {
+            qDebug() << "[PULLING] pulling cmd: failed.";
+            return;
+        }
+
+        // parser command
+        QJsonDocument intdata = QJsonDocument::fromJson(cmds);
+        QJsonObject intobj = intdata.object();
+        QString pulling_cmd = intobj.value("cmd_code").toString();
+
+        qDebug() << "[PULLING] pulling cmd:" << pulling_cmd;
+
+        // skip empty command
+        if (pulling_cmd.isEmpty()) {
+            return;
+        }
+
+        // stop pulling timer
+        tmr_pulling_watch_->stop();
+
+        // reboot request
+        if (pulling_cmd == PCMD_REBOOT_REQUEST ) {
+            qDebug() << "[PULLING] IPC Reboot Request";
+            QThread::sleep(5);
+            QProcess::execute("sudo reboot");
+            return;
+        }
+
+        // normal request
+        if (pulling_cmd == PCMD_SET_COMPRESSOR_ON) {
+            if (vm_controller_ != nullptr)
+                vm_controller_->setCompressorSwitch(true);
+        }
+        else if (pulling_cmd == PCMD_SET_COMPRESSOR_OFF) {
+            if (vm_controller_ != nullptr)
+                vm_controller_->setCompressorSwitch(false);
+        }
+
+        // start pulling timer
+        tmr_pulling_watch_->start();
     }
+}
 
-    // parser command
-    QJsonDocument intdata = QJsonDocument::fromJson(cmds);
-    QJsonObject intobj = intdata.object();
-    QString pulling_cmd = intobj.value("cmd_code").toString();
-
-    qDebug() << "[PULLING] pulling cmd:" << pulling_cmd;
-
-    // skip empty command
-    if (pulling_cmd.isEmpty()) {
-        return;
-    }
-
-    // stop pulling timer
-    tmr_pulling_watch_->stop();
-
-    // reboot request
-    if (pulling_cmd == PCMD_REBOOT_REQUEST ) {
-        qDebug() << "[PULLING] IPC Reboot Request";
-        QThread::sleep(5);
-        QProcess::execute("sudo reboot");
-        return;
-    }
-
-    // normal request
-    if (pulling_cmd == PCMD_SET_COMPRESSOR_ON) {
-        if (vm_controller_ != nullptr)
-            vm_controller_->setCompressorSwitch(true);
-    }
-    else if (pulling_cmd == PCMD_SET_COMPRESSOR_OFF) {
-        if (vm_controller_ != nullptr)
-            vm_controller_->setCompressorSwitch(false);
-    }
-
-    // start pulling timer
+void MainWindow::pbtn_set_clicked()
+{
+    machine_code_ = ui->lineEdit_machine_code->text();
     tmr_pulling_watch_->start();
 }

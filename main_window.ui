@@ -135,7 +135,7 @@
       </property>
      </widget>
     </item>
-    <item row="0" column="0" colspan="3">
+    <item row="0" column="0" colspan="2">
      <widget class="QLineEdit" name="lineEdit_machine_code">
       <property name="font">
        <font>
@@ -148,6 +148,21 @@
       </property>
       <property name="placeholderText">
        <string>請輸入機器代碼</string>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="2">
+     <widget class="QPushButton" name="pbtn_set">
+      <property name="font">
+       <font>
+        <family>Microsoft YaHei</family>
+        <pointsize>12</pointsize>
+        <weight>50</weight>
+        <bold>false</bold>
+       </font>
+      </property>
+      <property name="text">
+       <string>set</string>
       </property>
      </widget>
     </item>

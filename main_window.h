@@ -30,6 +30,7 @@ private slots:
     void pbtn_open_clicked();
     void pbtn_send_clicked();
     void pbtn_clear_clicked();
+    void pbtn_set_clicked();
     void spinBox_valueChanged(int value);
     void vmc_send();
     void vmc_ready_read();
@@ -40,6 +41,7 @@ private:
 
     QTimer *tmr_auto_send_;
     QTimer *tmr_pulling_watch_;
+    QString machine_code_ = "";
 
     // web api manager
     CmsApi *cms_api_;
